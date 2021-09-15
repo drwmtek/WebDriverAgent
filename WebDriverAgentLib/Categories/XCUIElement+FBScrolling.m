@@ -199,6 +199,89 @@ const CGFloat FBScrollTouchProportion = 0.75f;
   return YES;
 }
 
+- (BOOL)scrollToEdge:(CGFloat)normalizedScrollDistance maxScrolls:(NSUInteger)maxScrolls reverse:(BOOL)reverse error:(NSError **)error
+{
+  [self resolve];
+  __block NSArray<XCElementSnapshot *> *cellSnapshots, *visibleCellSnapshots;
+  
+  NSArray *accepted = @[
+                        @(XCUIElementTypeScrollView),
+                        @(XCUIElementTypeCollectionView),
+                        @(XCUIElementTypeTable),
+                        @(XCUIElementTypeWebView),
+                        ];
+  FBXCUIElementScrollDirection scrollDirection = FBXCUIElementScrollDirectionUnknown;
+  XCElementSnapshot *elementSnapshot = self.lastSnapshot;
+  
+  XCElementSnapshot *scrollView = [elementSnapshot fb_matchingOneOfTypes:accepted filter:^(XCElementSnapshot *snapshot) {
+    if (![snapshot isWDVisible]) {
+      return NO;
+    }
+    cellSnapshots = [snapshot fb_descendantsCellSnapshots];
+    visibleCellSnapshots = [cellSnapshots filteredArrayUsingPredicate:[FBPredicate predicateWithFormat:@"%K == YES", FBStringify(XCUIElement, fb_isVisible)]];
+    if (visibleCellSnapshots.count > 1) {
+      return YES;
+    }
+    return NO;
+  }];
+  
+  if (scrollView == nil) {
+    return
+    [[[FBErrorBuilder builder]
+      withDescriptionFormat:@"Failed to find scrollable visible parent with 2 visible children"]
+     buildError:error];
+  }
+  
+  XCElementSnapshot *targetCellSnapshot = visibleCellSnapshots.lastObject;
+  XCElementSnapshot *edgeSnapshot = targetCellSnapshot;
+  
+  if (scrollDirection == FBXCUIElementScrollDirectionUnknown) {
+    XCElementSnapshot *firstVisibleCell = visibleCellSnapshots.firstObject;
+    XCElementSnapshot *lastVisibleCell = visibleCellSnapshots.lastObject;
+    CGVector cellGrowthVector = CGVectorMake(firstVisibleCell.frame.origin.x - lastVisibleCell.frame.origin.x, firstVisibleCell.frame.origin.y - lastVisibleCell.frame.origin.y);
+    if (ABS(cellGrowthVector.dy) > ABS(cellGrowthVector.dx)) {
+      scrollDirection = FBXCUIElementScrollDirectionVertical;
+    } else {
+      scrollDirection = FBXCUIElementScrollDirectionHorizontal;
+    }
+  }
+
+  NSUInteger scrollCount = 0;
+  
+  while (scrollCount < maxScrolls) {
+    if (reverse) {
+      scrollDirection == FBXCUIElementScrollDirectionVertical ?
+      [scrollView fb_scrollUpByNormalizedDistance:normalizedScrollDistance inApplication:self.application] :
+      [scrollView fb_scrollLeftByNormalizedDistance:normalizedScrollDistance inApplication:self.application];
+    } else {
+      scrollDirection == FBXCUIElementScrollDirectionVertical ?
+      [scrollView fb_scrollDownByNormalizedDistance:normalizedScrollDistance inApplication:self.application] :
+      [scrollView fb_scrollRightByNormalizedDistance:normalizedScrollDistance inApplication:self.application];
+    }
+    [self resolve]; // Resolve is needed for correct visibility
+    scrollCount++;
+    [self fb_waitUntilStableWithTimeout:FBConfiguration.animationCoolOffTimeout];
+    cellSnapshots = [([self fb_cachedSnapshot] ?: [self fb_takeSnapshot]) fb_descendantsCellSnapshots];
+    
+    visibleCellSnapshots = [cellSnapshots filteredArrayUsingPredicate:[FBPredicate predicateWithFormat:@"%K == YES", FBStringify(XCUIElement, fb_isVisible)]];
+    edgeSnapshot = visibleCellSnapshots.lastObject;
+
+    if ([edgeSnapshot fb_framelessFuzzyMatchesElement:targetCellSnapshot]) {
+      break;
+    } else {
+      targetCellSnapshot = edgeSnapshot;
+    }
+  }
+  
+  if (scrollCount >= maxScrolls) {
+    return
+    [[[FBErrorBuilder builder]
+      withDescriptionFormat:@"Failed to perform scroll with visible cell due to max scroll count reached"]
+     buildError:error];
+  }
+  return YES;
+}
+
 - (BOOL)fb_isEquivalentElementSnapshotVisible:(XCElementSnapshot *)snapshot
 {
   if (snapshot.isWDVisible) {
