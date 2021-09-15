@@ -60,6 +60,15 @@ inline static BOOL isSnapshotTypeAmongstGivenTypes(XCElementSnapshot* snapshot, 
   return snapshot;
 }
 
+- (XCElementSnapshot *)fb_matchingOneOfTypes:(NSArray<NSNumber *> *)types filter:(BOOL(^)(XCElementSnapshot *snapshot))filter
+{
+  XCElementSnapshot *snapshot = self;
+  if (isSnapshotTypeAmongstGivenTypes(snapshot, types) && filter(snapshot)) {
+    return snapshot;
+  }
+  return nil;
+}
+
 - (id)fb_attributeValue:(NSString *)attribute
 {
   NSDictionary *result = [FBXCAXClientProxy.sharedClient attributesForElement:[self accessibilityElement]

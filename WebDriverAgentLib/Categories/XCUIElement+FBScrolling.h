@@ -82,6 +82,9 @@ typedef NS_ENUM(NSUInteger, FBXCUIElementScrollDirection) {
  */
 - (BOOL)fb_scrollToVisibleWithNormalizedScrollDistance:(CGFloat)normalizedScrollDistance scrollDirection:(FBXCUIElementScrollDirection)scrollDirection error:(NSError **)error;
 
+
+- (BOOL)scrollToEdge:(CGFloat)distance maxScrolls:(NSUInteger)maxScrolls reverse:(BOOL)reverse error:(NSError **)error;
+
 @end
 
 #endif

@@ -84,6 +84,8 @@
     [[FBRoute POST:@"/wda/element/:uuid/tapWithNumberOfTaps"] respondWithTarget:self action:@selector(handleTapWithNumberOfTaps:)],
     [[FBRoute POST:@"/wda/element/:uuid/touchAndHold"] respondWithTarget:self action:@selector(handleTouchAndHold:)],
     [[FBRoute POST:@"/wda/element/:uuid/scroll"] respondWithTarget:self action:@selector(handleScroll:)],
+    [[FBRoute POST:@"/wda/element/:uuid/scrollToEnd"] respondWithTarget:self action:@selector(handleScrollToEnd:)],
+    [[FBRoute POST:@"/wda/element/:uuid/scrollToBegin"] respondWithTarget:self action:@selector(handleScrollToBegin:)],
     [[FBRoute POST:@"/wda/element/:uuid/dragfromtoforduration"] respondWithTarget:self action:@selector(handleDrag:)],
     [[FBRoute POST:@"/wda/dragfromtoforduration"] respondWithTarget:self action:@selector(handleDragCoordinate:)],
     [[FBRoute POST:@"/wda/tap/:uuid"] respondWithTarget:self action:@selector(handleTap:)],
@@ -378,6 +380,34 @@
     return [self.class handleScrollElementToVisible:element withRequest:request];
   }
   return FBResponseWithStatus([FBCommandStatus invalidArgumentErrorWithMessage:@"Unsupported scroll type" traceback:nil]);
+}
+
++ (id<FBResponsePayload>)handleScrollToEnd:(FBRouteRequest *)request
+{
+  FBElementCache *elementCache = request.session.elementCache;
+  XCUIElement *element = [elementCache elementForUUID:(NSString *)request.parameters[@"uuid"]];
+
+  CGFloat distance = (CGFloat)[request.arguments[@"distance"] doubleValue];
+  NSUInteger maxScrolls = [request.arguments[@"maxScrolls"] unsignedIntegerValue];
+  NSError *error;
+  if (![element scrollToEdge:distance maxScrolls:maxScrolls reverse:false error:&error]) {
+    return FBResponseWithStatus([FBCommandStatus invalidElementStateErrorWithMessage:error.description traceback:nil]);
+  }
+  return FBResponseWithOK();
+}
+
++ (id<FBResponsePayload>)handleScrollToBegin:(FBRouteRequest *)request
+{
+  FBElementCache *elementCache = request.session.elementCache;
+  XCUIElement *element = [elementCache elementForUUID:(NSString *)request.parameters[@"uuid"]];
+  
+  CGFloat distance = (CGFloat)[request.arguments[@"distance"] doubleValue];
+  NSUInteger maxScrolls = [request.arguments[@"maxScrolls"] unsignedIntegerValue];
+  NSError *error;
+  if (![element scrollToEdge:distance maxScrolls:maxScrolls reverse:true error:&error]) {
+    return FBResponseWithStatus([FBCommandStatus invalidElementStateErrorWithMessage:error.description traceback:nil]);
+  }
+  return FBResponseWithOK();
 }
 
 + (id<FBResponsePayload>)handleDragCoordinate:(FBRouteRequest *)request
