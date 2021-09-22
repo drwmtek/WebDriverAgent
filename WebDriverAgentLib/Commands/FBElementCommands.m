@@ -43,6 +43,7 @@
 #import "XCUIElement.h"
 #import "XCUIElementQuery.h"
 #import "FBXCodeCompatibility.h"
+#import "XCUIElement+FBClassChain.h"
 
 @interface FBElementCommands ()
 @end
@@ -344,6 +345,15 @@
   NSString *const name = request.arguments[@"name"];
   if (name) {
     XCUIElement *childElement = [[[[element.fb_query descendantsMatchingType:XCUIElementTypeAny] matchingIdentifier:name] allElementsBoundByAccessibilityElement] lastObject];
+    if (!childElement) {
+      return FBResponseWithStatus([FBCommandStatus noSuchElementErrorWithMessage:[NSString stringWithFormat:@"'%@' identifier didn't match any elements", name] traceback:[NSString stringWithFormat:@"%@", NSThread.callStackSymbols]]);
+    }
+    return [self.class handleScrollElementToVisible:childElement withRequest:request];
+  }
+  
+  NSString *const classChain = request.arguments[@"classChain"];
+  if (classChain) {
+    XCUIElement *childElement = [[element fb_descendantsMatchingClassChain:classChain                        shouldReturnAfterFirstMatch:YES] lastObject];
     if (!childElement) {
       return FBResponseWithStatus([FBCommandStatus noSuchElementErrorWithMessage:[NSString stringWithFormat:@"'%@' identifier didn't match any elements", name] traceback:[NSString stringWithFormat:@"%@", NSThread.callStackSymbols]]);
     }
