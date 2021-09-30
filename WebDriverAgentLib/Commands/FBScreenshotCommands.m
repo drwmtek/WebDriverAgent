@@ -21,6 +21,8 @@
   @[
     [[FBRoute GET:@"/screenshot"].withoutSession respondWithTarget:self action:@selector(handleGetScreenshot:)],
     [[FBRoute GET:@"/screenshot"] respondWithTarget:self action:@selector(handleGetScreenshot:)],
+    [[FBRoute GET:@"/fastScreenshot"].withoutSession respondWithTarget:self action:@selector(handleGetScreenshot:)],
+    [[FBRoute GET:@"/fastScreenshot"] respondWithTarget:self action:@selector(handleGetScreenshot:)],
   ];
 }
 
@@ -35,6 +37,14 @@
     return FBResponseWithStatus([FBCommandStatus unableToCaptureScreenErrorWithMessage:error.description traceback:nil]);
   }
   NSString *screenshot = [screenshotData base64EncodedStringWithOptions:NSDataBase64Encoding64CharacterLineLength];
+  return FBResponseWithObject(screenshot);
+}
+
++ (id<FBResponsePayload>) handleFastScreenshot:(FBRouteRequest *)request
+{
+  XCUIScreenshot *screen = [[XCUIScreen mainScreen] screenshot];
+  NSData *data = UIImageJPEGRepresentation(screen.image, 1.0);
+  NSString *screenshot = [data base64EncodedStringWithOptions:NSDataBase64Encoding64CharacterLineLength];
   return FBResponseWithObject(screenshot);
 }
 
