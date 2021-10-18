@@ -97,44 +97,45 @@ const CGFloat FBScrollTouchProportion = 0.75f;
   if (prescrollSnapshot.isWDVisible) {
     return YES;
   }
-  
+
   static dispatch_once_t onceToken;
   static NSArray *acceptedParents;
   dispatch_once(&onceToken, ^{
     acceptedParents = @[
-                        @(XCUIElementTypeScrollView),
-                        @(XCUIElementTypeCollectionView),
-                        @(XCUIElementTypeTable),
-                        @(XCUIElementTypeWebView),
-                        ];
+      @(XCUIElementTypeScrollView),
+      @(XCUIElementTypeCollectionView),
+      @(XCUIElementTypeTable),
+      @(XCUIElementTypeWebView),
+    ];
   });
-  
-  //normalizedScrollDistance = 0.5;
-  
+
   __block NSArray<XCElementSnapshot *> *cellSnapshots, *visibleCellSnapshots;
-  XCElementSnapshot *scrollView = [prescrollSnapshot fb_parentMatchingOneOfTypes:acceptedParents filter:^(XCElementSnapshot *snapshot) {
-    if (![snapshot isWDVisible]) {
-      return NO;
-    }
-    cellSnapshots = [snapshot fb_descendantsCellSnapshots];
-    visibleCellSnapshots = [cellSnapshots filteredArrayUsingPredicate:[FBPredicate predicateWithFormat:@"%K == YES", FBStringify(XCUIElement, fb_isVisible)]];
-    if (visibleCellSnapshots.count > 1) {
-      return YES;
-    }
-    
-    return NO;
-  }];
-  
+  XCElementSnapshot *scrollView = [prescrollSnapshot fb_parentMatchingOneOfTypes:acceptedParents
+      filter:^(XCElementSnapshot *snapshot) {
+
+         if (![snapshot isWDVisible]) {
+           return NO;
+         }
+
+         cellSnapshots = [snapshot fb_descendantsCellSnapshots];
+
+         visibleCellSnapshots = [cellSnapshots filteredArrayUsingPredicate:[FBPredicate predicateWithFormat:@"%K == YES", FBStringify(XCUIElement, fb_isVisible)]];
+
+         if (visibleCellSnapshots.count > 1) {
+           return YES;
+         }
+         return NO;
+      }];
+
   if (scrollView == nil) {
     return
     [[[FBErrorBuilder builder]
       withDescriptionFormat:@"Failed to find scrollable visible parent with 2 visible children"]
      buildError:error];
   }
-  
+
   XCElementSnapshot *targetCellSnapshot = [prescrollSnapshot fb_parentCellSnapshot];
   XCElementSnapshot *lastSnapshot = visibleCellSnapshots.lastObject;
-  XCElementSnapshot *current = nil;
   // Can't just do indexOfObject, because targetCellSnapshot may represent the same object represented by a member of cellSnapshots, yet be a different object
   // than that member. This reflects the fact that targetCellSnapshot came out of self.fb_parentCellSnapshot, not out of cellSnapshots directly.
   // If the result is NSNotFound, we'll just proceed by scrolling downward/rightward, since NSNotFound will always be larger than the current index.
@@ -142,7 +143,7 @@ const CGFloat FBScrollTouchProportion = 0.75f;
     return [obj _matchesElement:targetCellSnapshot];
   }];
   NSUInteger visibleCellIndex = [cellSnapshots indexOfObject:lastSnapshot];
-  
+
   if (scrollDirection == FBXCUIElementScrollDirectionUnknown) {
     // Try to determine the scroll direction by determining the vector between the first and last visible cells
     XCElementSnapshot *firstVisibleCell = visibleCellSnapshots.firstObject;
@@ -156,60 +157,33 @@ const CGFloat FBScrollTouchProportion = 0.75f;
       scrollDirection = FBXCUIElementScrollDirectionHorizontal;
     }
   }
-  
+
   const NSUInteger maxScrollCount = 25;
   NSUInteger scrollCount = 0;
-  BOOL reverse = false;
   // Scrolling till cell is visible and get current value of frames
   while (![self fb_isEquivalentElementSnapshotVisible:prescrollSnapshot] && scrollCount < maxScrollCount) {
-    if ((targetCellIndex < visibleCellIndex) || reverse) {
+    if (targetCellIndex < visibleCellIndex) {
       scrollDirection == FBXCUIElementScrollDirectionVertical ?
-      [scrollView fb_scrollUpByNormalizedDistance:normalizedScrollDistance inApplication:self.application] :
-      [scrollView fb_scrollLeftByNormalizedDistance:normalizedScrollDistance inApplication:self.application];
+        [scrollView fb_scrollUpByNormalizedDistance:normalizedScrollDistance inApplication:self.application] :
+        [scrollView fb_scrollLeftByNormalizedDistance:normalizedScrollDistance inApplication:self.application];
     }
     else {
       scrollDirection == FBXCUIElementScrollDirectionVertical ?
-      [scrollView fb_scrollDownByNormalizedDistance:normalizedScrollDistance inApplication:self.application] :
-      [scrollView fb_scrollRightByNormalizedDistance:normalizedScrollDistance inApplication:self.application];
+        [scrollView fb_scrollDownByNormalizedDistance:normalizedScrollDistance inApplication:self.application] :
+        [scrollView fb_scrollRightByNormalizedDistance:normalizedScrollDistance inApplication:self.application];
     }
     scrollCount++;
     // Wait for scroll animation
     [self fb_waitUntilStableWithTimeout:FBConfiguration.animationCoolOffTimeout];
-    prescrollSnapshot = self.fb_takeSnapshot;
-    [prescrollSnapshot fb_parentMatchingOneOfTypes:acceptedParents filter:^(XCElementSnapshot *snapshot) {
-      if (![snapshot isWDVisible]) {
-        return NO;
-      }
-      cellSnapshots = [snapshot fb_descendantsCellSnapshots];
-      visibleCellSnapshots = [cellSnapshots filteredArrayUsingPredicate:[FBPredicate predicateWithFormat:@"%K == YES", FBStringify(XCUIElement, fb_isVisible)]];
-      if (visibleCellSnapshots.count > 1) {
-        return YES;
-      }
-      
-      return NO;
-    }];
-    lastSnapshot = visibleCellSnapshots.lastObject;
-    
-    if ([current fb_framelessFuzzyMatchesElement: lastSnapshot]) {
-      if (!reverse) {
-        reverse = true;
-      } else {
-        break;
-      }
-    } else {
-      current = lastSnapshot;
-    }
-    
-    
   }
-  
+
   if (scrollCount >= maxScrollCount) {
     return
     [[[FBErrorBuilder builder]
       withDescriptionFormat:@"Failed to perform scroll with visible cell due to max scroll count reached"]
      buildError:error];
   }
-  
+
   // Cell is now visible, but it might be only partialy visible, scrolling till whole frame is visible.
   // Sometimes, attempting to grab the parent snapshot of the target cell after scrolling is complete causes a stale element reference exception.
   // Trying fb_cachedSnapshot first
