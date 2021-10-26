@@ -32,6 +32,12 @@ static NSString *const OBJC_PROP_ATTRIBS_SEPARATOR = @",";
   return result;
 }
 
++ (NSArray *) listOfAllAttributes
+{
+  NSDictionary *attributeNamesMapping = [self.class wdAttributeNamesMapping];
+  return [attributeNamesMapping.allKeys sortedArrayUsingSelector:@selector(compare:)];
+}
+
 + (NSSet<NSNumber *> *)uniqueElementTypesWithElements:(NSArray<id<FBElement>> *)elements
 {
   NSMutableSet *matchingTypes = [NSMutableSet set];
