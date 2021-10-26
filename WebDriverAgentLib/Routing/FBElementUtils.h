@@ -31,6 +31,8 @@ extern NSString *const FBUnknownAttributeException;
  */
 + (NSString *)wdAttributeNameForAttributeName:(NSString *)name;
 
++ (NSArray *)listOfAllAttributes;
+
 /**
  Collects all the unique element types from an array of elements.
  

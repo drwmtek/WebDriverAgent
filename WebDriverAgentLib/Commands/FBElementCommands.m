@@ -60,6 +60,7 @@
     [[FBRoute GET:@"/element/:uuid/enabled"] respondWithTarget:self action:@selector(handleGetEnabled:)],
     [[FBRoute GET:@"/element/:uuid/rect"] respondWithTarget:self action:@selector(handleGetRect:)],
     [[FBRoute GET:@"/element/:uuid/attribute/:name"] respondWithTarget:self action:@selector(handleGetAttribute:)],
+    [[FBRoute GET:@"/element/:uuid/objInfo"] respondWithTarget:self action:@selector(handleObjInfo:)],
     [[FBRoute GET:@"/element/:uuid/text"] respondWithTarget:self action:@selector(handleGetText:)],
     [[FBRoute GET:@"/element/:uuid/displayed"] respondWithTarget:self action:@selector(handleGetDisplayed:)],
     [[FBRoute GET:@"/element/:uuid/selected"] respondWithTarget:self action:@selector(handleGetSelected:)],
@@ -138,6 +139,27 @@
                                           andMaxDepth:maxDepth];
   id attributeValue = [element.lastSnapshot fb_valueForWDAttributeName:attributeName];
   return FBResponseWithObject(attributeValue ?: [NSNull null]);
+}
+
++ (id<FBResponsePayload>)handleObjInfo:(FBRouteRequest *) request
+{
+  FBElementCache *elementCache = request.session.elementCache;
+  NSMutableArray *attrNames = [(NSArray*)[FBElementUtils listOfAllAttributes] mutableCopy];
+  [attrNames removeObject:@"frame"];
+  [attrNames removeObject:@"wdFrame"];
+
+  XCUIElement *element = [elementCache elementForUUID:(NSString *)request.parameters[@"uuid"]
+                       resolveForAdditionalAttributes:attrNames
+                                          andMaxDepth:@1];
+  NSMutableDictionary *dict = [NSMutableDictionary new];
+  for (id object in attrNames) {
+    id value = [element.lastSnapshot fb_valueForWDAttributeName:object];
+
+
+    [dict setObject:value ?: [NSNull null] forKey:object];
+  }
+  
+  return FBResponseWithObject(dict ?: [NSNull null]);
 }
 
 + (id<FBResponsePayload>)handleGetText:(FBRouteRequest *)request
